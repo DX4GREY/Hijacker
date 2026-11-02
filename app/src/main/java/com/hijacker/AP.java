@@ -66,6 +66,7 @@ import static com.hijacker.MainActivity.startAireplay;
 import static com.hijacker.MainActivity.startAireplayWear;
 import static com.hijacker.MainActivity.startAireplayWEP;
 import static com.hijacker.MainActivity.stop;
+import static com.hijacker.MainActivity.switchChannel;
 import static com.hijacker.MainActivity.stopWPA;
 import static com.hijacker.MainActivity.target_deauth;
 import static com.hijacker.MainActivity.toSort;
@@ -194,6 +195,7 @@ class AP extends Device{
     void crack(){
         stop(PROCESS_AIRODUMP);
         stop(PROCESS_AIREPLAY);
+        switchChannel(this.ch);
         adapter.notifyDataSetChanged();
         Boolean iswatch = pref.getBoolean("running_on_wearos", false);
         if(this.sec == WEP){
@@ -232,6 +234,7 @@ class AP extends Device{
         fragmentManager.executePendingTransactions();      //Wait for everything to be set up
     }
     void disconnectAll(){
+        switchChannel(this.ch);
         if(Airodump.getChannel() != this.ch){
             if(debug) Log.d("HIJACKER/AP", "Starting airodump for channel " + this.ch);
             Airodump.startClean(this.ch);
