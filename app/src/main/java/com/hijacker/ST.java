@@ -54,6 +54,7 @@ import static com.hijacker.MainActivity.sort;
 import static com.hijacker.MainActivity.startAireplay;
 import static com.hijacker.MainActivity.startAireplayWear;
 import static com.hijacker.MainActivity.stop;
+import static com.hijacker.MainActivity.switchChannel;
 import static com.hijacker.MainActivity.toSort;
 
 class ST extends Device{
@@ -78,7 +79,10 @@ class ST extends Device{
     }
     void disconnect(){
         Boolean iswatch = pref.getBoolean("running_on_wearos", false);
-        if(Airodump.getChannel() != connectedTo.ch){
+        if(connectedTo != null){
+            switchChannel(connectedTo.ch);
+        }
+        if(connectedTo != null && Airodump.getChannel() != connectedTo.ch){
             //switch channel only if airodump is running elsewhere
             stop(PROCESS_AIREPLAY);
             Airodump.startClean(connectedTo.ch);

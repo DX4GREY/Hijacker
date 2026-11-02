@@ -159,10 +159,11 @@ public class MainActivity extends AppCompatActivity{
     static String versionName, deviceModel;
     static int versionCode;
     static String devChipset = "";
+    static boolean isQcacld = false;
     static ActionBar actionBar;
     static String bootkali_init_bin = "/data/data/com.offsec.nethunter/scripts/bootkali_init";
     //Preferences - Defaults are in strings.xml
-    static String iface, prefix, airodump_dir, aireplay_dir, aircrack_dir, mdk3bf_dir, mdk3dos_dir, reaver_dir, chroot_dir,
+    static String iface, prefix, airodump_dir, aireplay_dir, aircrack_dir, mdk3bf_dir, mdk3dos_dir, reaver_dir, iw_dir, chroot_dir,
             enable_monMode, disable_monMode, custom_chroot_cmd;
     static int deauthWait, band;
     static boolean show_notif, show_details, airOnStartup, debug, delete_extra, show_client_count,
@@ -644,7 +645,23 @@ public class MainActivity extends AppCompatActivity{
                         devChipset = devChipset.substring(0, index);
                     }
                 }
-                Log.i("HIJACKER/DetectDev", "devChipset is " + devChipset);
+
+                //Check for Qualcomm qcacld3.0
+                if(devChipset.isEmpty() || devChipset.equals("ENDOFSTRINGS")){
+                    shell.run("if [ -d /sys/module/qcacld_3_0 ] || [ -d /sys/module/qcacld30 ] || [ -d /sys/module/qcacld ] || grep -qi \"qcacld\" /sys/module/wlan/version 2>/dev/null || [ -f /vendor/firmware/wlan/qca_cld/wlanmdsp.mbn ] || [ -d /sys/module/wlan_core ]; then echo QCACLD30; else echo NONE; fi");
+                    String qcaCheck = getLastLine(shell.getShell_out(), "NONE");
+                    if("QCACLD30".equals(qcaCheck)){
+                        devChipset = "qcacld3.0";
+                        isQcacld = true;
+                    }
+                }else if(devChipset.toLowerCase().contains("qcacld")){
+                    isQcacld = true;
+                }
+
+                if(!isQcacld && "qcacld3.0".equalsIgnoreCase(devChipset)){
+                    isQcacld = true;
+                }
+                Log.i("HIJACKER/DetectDev", "devChipset is " + devChipset + ", isQcacld=" + isQcacld);
                 shell.done();
 
                 //Set directories
@@ -661,6 +678,7 @@ public class MainActivity extends AppCompatActivity{
                 mdk3bf_dir = path + "/bin/mdk3bf";
                 mdk3dos_dir = path + "/bin/mdk3dos";
                 reaver_dir = path + "/bin/reaver";
+                iw_dir = path + "/bin/iw";
             }else{
                 Log.e("HIJACKER/onCreate", "Device not armv7l or aarch64, can't install tools");
                 busybox = "busybox";
@@ -674,6 +692,7 @@ public class MainActivity extends AppCompatActivity{
                 mdk3bf_dir = "mdk3";
                 mdk3dos_dir = "mdk3";
                 reaver_dir = "reaver";
+                iw_dir = "iw";
             }
 
             //Initialize RootFile (requires root)
@@ -1052,6 +1071,14 @@ public class MainActivity extends AppCompatActivity{
         if(airOnStartup) Airodump.startClean();
     }
 
+    public static void switchChannel(int ch){
+        if(ch <= 0) return;
+        String iwBin = iw_dir != null ? iw_dir : "iw";
+        String cmd = "su -c " + iwBin + " dev " + iface + " set channel " + ch;
+        if(debug) Log.d("HIJACKER/switchChannel", cmd);
+        runOne(cmd);
+    }
+
     public static void _startAireplay(final String str){
         try{
             String cmd = "su -c " + prefix + " " + aireplay_dir + " -D --ignore-negative-one " + str + " " + iface;
@@ -1071,26 +1098,45 @@ public class MainActivity extends AppCompatActivity{
     }
     public static void startAireplay(String mac){
         //Disconnect all clients from mac
+        AP ap = getAPByMac(mac);
+        if(ap != null){
+            switchChannel(ap.ch);
+        }
         aireplay_running = AIREPLAY_DEAUTH;
         _startAireplay("--deauth 0 -a " + mac);
     }
     public static void startAireplay(String target, String client){
         //Disconnect client client from ap target
+        AP ap = getAPByMac(target);
+        if(ap != null){
+            switchChannel(ap.ch);
+        }
         aireplay_running = AIREPLAY_DEAUTH;
         _startAireplay("--deauth 0 -a " + target + " -c " + client);
     }
     public static void startAireplayWear(String mac){
         //Disconnect all clients from mac
+        AP ap = getAPByMac(mac);
+        if(ap != null){
+            switchChannel(ap.ch);
+        }
         aireplay_running = AIREPLAY_DEAUTH;
         _startAireplay("--deauth 1 -a " + mac);
     }
     public static void startAireplayWear(String target, String client){
         //Disconnect client client from ap target
+        AP ap = getAPByMac(target);
+        if(ap != null){
+            switchChannel(ap.ch);
+        }
         aireplay_running = AIREPLAY_DEAUTH;
         _startAireplay("--deauth 1 -a " + target + " -c " + client);
     }
     public static void startAireplayWEP(AP ap){
         //Increase IV generation from ap mac to crack a wep network
+        if(ap != null){
+            switchChannel(ap.ch);
+        }
         aireplay_running = AIREPLAY_WEP;
         _startAireplay("--fakeauth 0 -a " + ap.mac + " -e " + ap.essid);
         //_startAireplay("--arpreplay -b " + ap.mac);       //Aireplay tries to open a file at a read-only system
@@ -1119,6 +1165,12 @@ public class MainActivity extends AppCompatActivity{
     }
     public static void startAdos(String str){
         try{
+            if(str != null){
+                AP ap = getAPByMac(str);
+                if(ap != null){
+                    switchChannel(ap.ch);
+                }
+            }
             String cmd = "su -c " + prefix + " " + mdk3dos_dir + " " + iface + " a -m";
             cmd += str==null ? "" : " -i " + str;
             if(debug) Log.d("HIJACKER/MDK3", cmd);

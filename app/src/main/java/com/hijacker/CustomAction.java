@@ -37,6 +37,7 @@ import static com.hijacker.MainActivity.iface;
 import static com.hijacker.MainActivity.mdk3bf_dir;
 import static com.hijacker.MainActivity.prefix;
 import static com.hijacker.MainActivity.reaver_dir;
+import static com.hijacker.MainActivity.switchChannel;
 
 class CustomAction{
     static final int TYPE_AP=0, TYPE_ST=1;
@@ -78,6 +79,7 @@ class CustomAction{
         shell.run("export REAVER_DIR=\"" + reaver_dir + '\"');
         if(type==TYPE_AP){
             AP ap = (AP)dev;
+            switchChannel(ap.ch);
             shell.run("export MAC=\"" + ap.mac + '\"');
             shell.run("export ESSID=\"" + ap.essid + '\"');
             shell.run("export ENC=\"" + ap.enc + '\"');
@@ -86,6 +88,9 @@ class CustomAction{
             shell.run("export CH=\"" + ap.ch + '\"');
         }else{
             ST st = (ST)dev;
+            if(st.connectedTo != null){
+                switchChannel(st.connectedTo.ch);
+            }
             shell.run("export MAC=\"" + st.mac + '\"');
             shell.run("export BSSID=\"" + st.bssid + '\"');
         }
